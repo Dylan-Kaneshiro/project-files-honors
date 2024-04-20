@@ -137,6 +137,14 @@ def isInOurSide(self, gameState, position):
       return position[0] < width / 2
     else:
       return position[0] >= width / 2
+    
+def isFood(self, gameState, position):
+    """
+    Returns True if the given position has food that our agent can eat.
+    """
+    foodMatrix = self.getFood(gameState)
+    x, y = position
+    return foodMatrix[x][y]
 
 class OffensiveReflexAgent(ReflexCaptureAgent):
   """
@@ -214,16 +222,16 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     If the agent is carrying food and a ghost is within distance 4,
     it uses the A* search algorithm to calculate a path to the home side.
     """
-    actions = gameState.getLegalActions(self.index)
-    values = [self.evaluate(gameState, a) for a in actions]
-    maxValue = max(values)
-    bestActions = [a for a, v in zip(actions, values) if v == maxValue]
 
     if gameState.getAgentState(self.index).numCarrying > 0 and min([self.getMazeDistance(gameState.getAgentState(self.index).getPosition(), gameState.getAgentState(ghostIndex).getPosition()) for ghostIndex in self.getOpponents(gameState) if gameState.getAgentState(ghostIndex).getPosition() != None], default=float('inf')) <= 4:      # Use A* search to find path to home side
       path = self.aStarSearch(gameState, isInOurSide)
       return path[0]
-
-    return random.choice(bestActions)
+    elif len(self.getFood(gameState).asList()) > 0:
+      path = self.aStarSearch(gameState, isFood)
+      return path[0]
+    else:
+      path = self.aStarSearch(gameState, isInOurSide)
+      return path[0]
 
 class DefensiveReflexAgent(ReflexCaptureAgent):
   """
