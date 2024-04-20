@@ -23,9 +23,10 @@
 from captureAgents import CaptureAgent
 import distanceCalculator
 import random, time, util, sys
-from game import Directions
+from game import Actions, Directions
 import game
 from util import nearestPoint
+from util import PriorityQueue
 
 #################
 # Team creation #
@@ -133,6 +134,49 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
   we give you to get an idea of what an offensive agent might look like,
   but it is by no means the best or only way to build an offensive agent.
   """
+
+  def isInOurSide(self, gameState, position):
+    """
+    Returns True if the given position is in our side of the board.
+    """
+    width = gameState.data.layout.width
+    if self.red:
+      return position[0] < width / 2
+    else:
+      return position[0] >= width / 2
+    
+  def aStarSearch(self, gameState):
+    """
+    A* search algorithm to find the minimum cost path to a goal.
+    The cost of being within distance 1 of a ghost is 10, the cost of being within distance 2 of a ghost is 5,
+    the cost of being within distance 3 of a ghost is 2, and the cost of all other moves is 1.
+    """
+    myPos = gameState.getAgentState(self.index).getPosition()
+    myPos = (int(myPos[0]), int(myPos[1]))  # Ensure myPos is an integer tuple
+    frontier = PriorityQueue()
+    frontier.push((myPos, [], 0), 0)  # Add a third element for the cost
+    explored = set()
+    gridCenter = (gameState.data.layout.width // 2, gameState.data.layout.height // 2)
+
+    while not frontier.isEmpty():
+      node, actions, totalCost = frontier.pop()
+      if self.isInOurSide(gameState, node):
+        return actions
+      explored.add(node)
+      for action in [Directions.NORTH, Directions.SOUTH, Directions.EAST, Directions.WEST]:
+        dx, dy = Actions.directionToVector(action)
+        nextNode = (int(node[0] + dx), int(node[1] + dy))
+        if nextNode not in explored and not gameState.hasWall(int(nextNode[0]), int(nextNode[1])):
+          cost = self.getMazeDistance(myPos, nextNode)
+          if cost <= 3:
+            cost = 10 / cost
+          else:
+            cost = 1
+          newCost = totalCost + cost
+          heuristic = abs(nextNode[0] - gridCenter[0])  # Horizontal distance to center
+          frontier.push((nextNode, actions + [action], newCost), newCost + heuristic)
+    return []
+
   def getFeatures(self, gameState, action):
     features = util.Counter()
     successor = self.getSuccessor(gameState, action)
@@ -147,28 +191,27 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
       minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
       features['distanceToFood'] = minDistance
 
-    # Check if the agent is carrying more than 2 food items
-    if gameState.getAgentState(self.index).numCarrying >= 4:
-      # Encourage the agent to return to its own side
-      features['returnToBase'] = self.getMazeDistance(myPos, self.start)
-
-    # Compute distance to the nearest ghost
-    enemies = [successor.getAgentState(i) for i in self.getOpponents(successor)]
-    ghosts = [a for a in enemies if not a.isPacman and a.getPosition() != None]
-    if len(ghosts) > 0:
-      minDistance = min([self.getMazeDistance(myPos, a.getPosition()) for a in ghosts])
-      if minDistance <= 4:
-        # Encourage the agent to return to its own side
-        features['returnToBase'] = self.getMazeDistance(myPos, self.start)
-        features['distanceToGhost'] = minDistance
-        if minDistance == 1:
-          # Discourage the agent from getting closer to the ghost
-          features['distanceToGhost'] = -10
-
     return features
 
   def getWeights(self, gameState, action):
-    return {'successorScore': 100, 'distanceToFood': -1, 'returnToBase': -100, 'distanceToGhost': 250}
+    return {'successorScore': 100, 'distanceToFood': -1}
+  
+  def chooseAction(self, gameState):
+    """
+    Picks among actions randomly after computing their values.
+    If the agent is carrying food and a ghost is within distance 4,
+    it uses the A* search algorithm to calculate a path to the home side.
+    """
+    actions = gameState.getLegalActions(self.index)
+    values = [self.evaluate(gameState, a) for a in actions]
+    maxValue = max(values)
+    bestActions = [a for a, v in zip(actions, values) if v == maxValue]
+
+    if gameState.getAgentState(self.index).numCarrying > 0 and min([self.getMazeDistance(gameState.getAgentState(self.index).getPosition(), gameState.getAgentState(ghostIndex).getPosition()) for ghostIndex in self.getOpponents(gameState) if gameState.getAgentState(ghostIndex).getPosition() != None], default=float('inf')) <= 4:      # Use A* search to find path to home side
+      path = self.aStarSearch(gameState)
+      return path[0]
+
+    return random.choice(bestActions)
 
 class DefensiveReflexAgent(ReflexCaptureAgent):
   """
