@@ -158,6 +158,10 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     explored = set()
     gridCenter = (gameState.data.layout.width // 2, gameState.data.layout.height // 2)
 
+    # Get the positions of the opposing team's ghosts
+    enemies = [gameState.getAgentState(i) for i in self.getOpponents(gameState)]
+    ghosts = [a for a in enemies if not a.isPacman and a.getPosition() != None]
+
     while not frontier.isEmpty():
       node, actions, totalCost = frontier.pop()
       if self.isInOurSide(gameState, node):
@@ -167,9 +171,15 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         dx, dy = Actions.directionToVector(action)
         nextNode = (int(node[0] + dx), int(node[1] + dy))
         if nextNode not in explored and not gameState.hasWall(int(nextNode[0]), int(nextNode[1])):
-          cost = self.getMazeDistance(myPos, nextNode)
-          if cost <= 3:
-            cost = 10 / cost
+           # Calculate the distance to the nearest ghost
+          distances_to_ghosts = [self.getMazeDistance(nextNode, ghost.getPosition()) for ghost in ghosts]
+          distance_to_nearest_ghost = min(distances_to_ghosts) if distances_to_ghosts else float('inf')
+          if distance_to_nearest_ghost == 1:
+            cost = 30
+          elif distance_to_nearest_ghost == 2:
+            cost = 20
+          elif distance_to_nearest_ghost == 3:
+            cost = 10
           else:
             cost = 1
           newCost = totalCost + cost
