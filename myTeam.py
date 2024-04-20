@@ -128,14 +128,7 @@ class ReflexCaptureAgent(CaptureAgent):
     """
     return {'successorScore': 1.0}
 
-class OffensiveReflexAgent(ReflexCaptureAgent):
-  """
-  A reflex agent that seeks food. This is an agent
-  we give you to get an idea of what an offensive agent might look like,
-  but it is by no means the best or only way to build an offensive agent.
-  """
-
-  def isInOurSide(self, gameState, position):
+def isInOurSide(self, gameState, position):
     """
     Returns True if the given position is in our side of the board.
     """
@@ -144,8 +137,17 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
       return position[0] < width / 2
     else:
       return position[0] >= width / 2
+
+class OffensiveReflexAgent(ReflexCaptureAgent):
+  """
+  A reflex agent that seeks food. This is an agent
+  we give you to get an idea of what an offensive agent might look like,
+  but it is by no means the best or only way to build an offensive agent.
+  """
+
+
     
-  def aStarSearch(self, gameState):
+  def aStarSearch(self, gameState, goal_test):
     """
     A* search algorithm to find the minimum cost path to a goal.
     The cost of being within distance 1 of a ghost is 10, the cost of being within distance 2 of a ghost is 5,
@@ -164,7 +166,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 
     while not frontier.isEmpty():
       node, actions, totalCost = frontier.pop()
-      if self.isInOurSide(gameState, node):
+      if goal_test(self, gameState, node):
         return actions
       explored.add(node)
       for action in [Directions.NORTH, Directions.SOUTH, Directions.EAST, Directions.WEST]:
@@ -218,7 +220,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     bestActions = [a for a, v in zip(actions, values) if v == maxValue]
 
     if gameState.getAgentState(self.index).numCarrying > 0 and min([self.getMazeDistance(gameState.getAgentState(self.index).getPosition(), gameState.getAgentState(ghostIndex).getPosition()) for ghostIndex in self.getOpponents(gameState) if gameState.getAgentState(ghostIndex).getPosition() != None], default=float('inf')) <= 4:      # Use A* search to find path to home side
-      path = self.aStarSearch(gameState)
+      path = self.aStarSearch(gameState, isInOurSide)
       return path[0]
 
     return random.choice(bestActions)
