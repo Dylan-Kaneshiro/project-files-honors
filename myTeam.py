@@ -163,8 +163,8 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     """
     myPos = gameState.getAgentState(self.index).getPosition()
     myPos = (int(myPos[0]), int(myPos[1]))  # Ensure myPos is an integer tuple
-    frontier = PriorityQueue()
-    frontier.push((myPos, [], 0), 0)  # Add a third element for the cost
+    fringe = PriorityQueue()
+    fringe.push((myPos, [], 0), 0)  # Add a third element for the cost
     explored = set()
     gridCenter = (gameState.data.layout.width // 2, gameState.data.layout.height // 2)
 
@@ -172,8 +172,8 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     enemies = [gameState.getAgentState(i) for i in self.getOpponents(gameState)]
     ghosts = [a for a in enemies if not a.isPacman and a.getPosition() != None]
 
-    while not frontier.isEmpty():
-      node, actions, totalCost = frontier.pop()
+    while not fringe.isEmpty():
+      node, actions, totalCost = fringe.pop()
       if goal_test(self, gameState, node):
         return actions
       explored.add(node)
@@ -194,7 +194,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
             cost = 1
           newCost = totalCost + cost
           heuristic = abs(nextNode[0] - gridCenter[0])  # Horizontal distance to center
-          frontier.push((nextNode, actions + [action], newCost), newCost + heuristic)
+          fringe.push((nextNode, actions + [action], newCost), newCost + heuristic)
     return []
 
   def getFeatures(self, gameState, action):
