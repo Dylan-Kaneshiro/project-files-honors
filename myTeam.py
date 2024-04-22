@@ -154,7 +154,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
   """
 
 
-    
+
   def aStarSearch(self, gameState, goal_test):
     """
     A* search algorithm to find the minimum cost path to a goal.
@@ -240,7 +240,10 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
   could be like.  It is not the best or only way to make
   such an agent.
   """
-
+  def __init__( self, index, timeForComputing = .1 ):
+    super().__init__(index, timeForComputing)
+    self.lastSighting = None
+    
   def getFeatures(self, gameState, action):
     features = util.Counter()
     successor = self.getSuccessor(gameState, action)
@@ -249,16 +252,52 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     myPos = myState.getPosition()
 
     # Computes whether we're on defense (1) or offense (0)
-    features['onDefense'] = 1
-    if myState.isPacman: features['onDefense'] = 0
+    features['offDefense'] = 0
+    if myState.isPacman: features['offDefense'] = 1
 
-    # Computes distance to invaders we can see
+    # Remove last sighting upon reaching it
+    if myPos == self.lastSighting:
+      self.lastSighting = None
+
+    # Find positions of invaders that just picked up food
+    prevGameState = self.getPreviousObservation()
+    thiefPositions = []
+    if prevGameState:
+      oldFood = self.getFoodYouAreDefending(self.getPreviousObservation()).asList()
+      curFood = self.getFoodYouAreDefending(gameState).asList()
+      for food in oldFood:
+        if food not in curFood: # If this food was stolen last turn, add position to known invader positions
+          thiefPositions.append(food)
+          if self.lastSighting == None or self.getMazeDistance(myPos, food) < self.getMazeDistance(myPos, self.lastSighting): # Keep track of position of last food stolen
+            self.lastSighting = food
+
+    # Computes distance to invaders we can see or any invader that just picked up food
     enemies = [successor.getAgentState(i) for i in self.getOpponents(successor)]
     invaders = [a for a in enemies if a.isPacman and a.getPosition() != None]
     features['numInvaders'] = len(invaders)
-    if len(invaders) > 0:
+    if len(invaders) > 0 or len(thiefPositions) > 0:
       dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders]
+      dists += [self.getMazeDistance(myPos, pos) for pos in thiefPositions]
       features['invaderDistance'] = min(dists)
+
+    # If no invaders in sight, follow last food disappearance
+    elif self.lastSighting != None:
+      dist = self.getMazeDistance(myPos, self.lastSighting)
+      features['invaderDistance'] = dist
+
+    # Compute "distance to border" - minimum maze distance to any coordinate one away from the border
+    border = int(self.getFood(gameState).width // 2)
+    if self.red:
+      column = border - 1
+    else:
+      column = border + 1
+    borderDists = []
+    for y in range(self.getFood(gameState).height):
+      possiblePair = (myPos, (column, y))
+      if possiblePair in self.distancer._distances: # If this border point is valid in the maze, add maze distance from myPos to this point
+        pos1,pos2 = possiblePair
+        borderDists.append(self.getMazeDistance(pos1, pos2))
+    features['distanceToBorder'] = min(borderDists)
 
     if action == Directions.STOP: features['stop'] = 1
     rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction]
@@ -267,4 +306,4 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     return features
 
   def getWeights(self, gameState, action):
-    return {'numInvaders': -1000, 'onDefense': 100, 'invaderDistance': -10, 'stop': -100, 'reverse': -2}
+    return {'numInvaders': -1000, 'offDefense': -1000, 'invaderDistance': -100, 'distanceToBorder': -10, 'stop': -100, 'reverse': -2}
