@@ -146,6 +146,13 @@ def isFood(self, gameState, position):
     x, y = position
     return foodMatrix[x][y]
 
+def isCapsule(self, gameState, position):
+  """
+  Returns True if the given position has a power capsule that our agent can eat
+  """
+  capsuleList = self.getCapsules(gameState)
+  return position in capsuleList
+
 class OffensiveReflexAgent(ReflexCaptureAgent):
   """
   A reflex agent that seeks food. This is an agent
@@ -170,7 +177,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 
     # Get the positions of the opposing team's ghosts
     enemies = [gameState.getAgentState(i) for i in self.getOpponents(gameState)]
-    ghosts = [a for a in enemies if not a.isPacman and a.getPosition() != None]
+    ghosts = [a for a in enemies if not a.isPacman and a.getPosition() != None and a.scaredTimer < 5]
 
     while not fringe.isEmpty():
       node, actions, totalCost = fringe.pop()
@@ -228,6 +235,9 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
       return path[0]
     elif len(self.getFood(gameState).asList()) > 0:
       path = self.aStarSearch(gameState, isFood)
+      capsulePath = self.aStarSearch(gameState, isCapsule)
+      if len(capsulePath) > 0 and len(capsulePath) < len(path):
+        return capsulePath[0]
       return path[0]
     else:
       path = self.aStarSearch(gameState, isInOurSide)
@@ -275,10 +285,13 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     enemies = [successor.getAgentState(i) for i in self.getOpponents(successor)]
     invaders = [a for a in enemies if a.isPacman and a.getPosition() != None]
     features['numInvaders'] = len(invaders)
+    features['inDanger'] = 0
     if len(invaders) > 0 or len(thiefPositions) > 0:
       dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders]
       dists += [self.getMazeDistance(myPos, pos) for pos in thiefPositions]
       features['invaderDistance'] = min(dists)
+      if myState.scaredTimer > 0 and features['invaderDistance'] < 3: # If the ghost is scared and within a manhattan distance of 3 from an invader, it is in danger
+        features['inDanger'] = 1
 
     # If no invaders in sight, follow last food disappearance
     elif self.lastSighting != None:
@@ -306,4 +319,4 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     return features
 
   def getWeights(self, gameState, action):
-    return {'numInvaders': -1000, 'offDefense': -1000, 'invaderDistance': -100, 'distanceToBorder': -10, 'stop': -100, 'reverse': -2}
+    return {'inDanger': -2000, 'numInvaders': -1000, 'offDefense': -1000, 'invaderDistance': -100, 'distanceToBorder': -10, 'stop': -100, 'reverse': -2}
