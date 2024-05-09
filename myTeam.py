@@ -177,7 +177,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 
     # Get the positions of the opposing team's ghosts
     enemies = [gameState.getAgentState(i) for i in self.getOpponents(gameState)]
-    ghosts = [a for a in enemies if not a.isPacman and a.getPosition() != None and a.scaredTimer < 5]
+    ghosts = [a for a in enemies if not a.isPacman and a.getPosition() != None and a.scaredTimer < 10]
 
     while not fringe.isEmpty():
       node, actions, totalCost = fringe.pop()
